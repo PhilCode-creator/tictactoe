@@ -1,0 +1,100 @@
+plugins {
+    id 'java'
+    id 'de.undercouch.download' version '4.0.0'
+}
+
+group 'de.julianmc'
+version '1.0-SNAPSHOT'
+description 'A Minecraft Lobby Minigame'
+
+ext {
+    // The Minecraft version we develop with
+    mc_version = '1.8.8'
+
+    paper = [
+            // The path in which PaperSpigot get's build
+            buildPath : buildDir.toPath().resolve('paper'),
+            // The current/latest version of PaperSpigot
+            buildVersion : 'latest'
+    ]
+}
+
+sourceCompatibility = JavaVersion.VERSION_1_8
+targetCompatibility = JavaVersion.VERSION_1_8
+
+compileJava.options.encoding = 'UTF-8'
+
+/** Imports */
+import java.nio.file.Files
+
+task ('downloadPaperclip', type: Download) {
+    group 'paper'
+    description 'Downloads the PaperClip.jar from PaperMC'
+
+    doFirst {
+        if (!Files.exists(paper.buildPath)) {
+            Files.createDirectories(paper.buildPath)
+        }
+    }
+
+    src "https://papermc.io/api/v1/paper/${mc_version}/${paper.buildVersion}/download"
+    dest paper.buildPath.toFile()
+}
+
+task ('buildPaperSpigot', type: JavaExec, dependsOn: 'downloadPaperclip') {
+    group 'paper'
+    description 'Builds PaperSpigot using the PaperClip.jar'
+
+    // The Download task just takes the last part of the url as the file name
+    // but we can ignore that since java doesn't need an .jar file ending to run it
+    def path = paper.buildPath.resolve('download'),
+        absolute = path.toAbsolutePath()
+
+    main = '-jar'
+    args(absolute.toString()/*, '--rev', mc_version*/)
+    // Not working in this outdated version of PaperClip
+    // systemProperties = [ 'paperclip.patchonly': true ]
+    workingDir = path.getParent().toAbsolutePath().toString()
+    standardInput = System.in
+}
+
+task ('copyPaperSpigot', type: Copy, dependsOn: 'buildPaperSpigot') {
+    group 'paper'
+    description 'Copies the patched Server executable into the libraries directory'
+
+    def fileName = "patched.jar"/*"patched_${mc_version}.jar"*/, dest = new File(projectDir, 'libs')
+
+    // If libraries are present, skip all paper tasks
+    if (dest.exists()) {
+        gradle.taskGraph.useFilter {
+            task -> task.group != 'paper'
+        }
+        return
+    }
+
+    doFirst {
+        if (!dest.exists() && !dest.mkdir()) {
+            throw new GradleException('An error occured while creating the libraries directory')
+        }
+    }
+
+    from paper.buildPath.resolve('cache')
+    include fileName
+    rename(fileName, 'paper.jar')
+    into dest
+}.doLast {
+    paper.buildPath.toFile().deleteDir()
+    getDependencies().add('compileOnly', files('libs/paper.jar'))
+}
+
+compileJava.dependsOn copyPaperSpigot
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    def libs; compileOnly libs = fileTree(dir: 'libs', includes: ['*.jar'])
+
+    testCompile libs, [ group: 'junit', name: 'junit', version: '4.12' ]
+}
