@@ -1,1 +1,7 @@
 name: TicTacToe
+authors:
+  - CuzImPhilipp
+  - bernieplayshd
+website: https://julianminecraft.de
+version: "0.1"
+main: de.julianmc.tictactoe.Main
