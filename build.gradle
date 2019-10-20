@@ -9,7 +9,7 @@ description 'A Minecraft Lobby Minigame'
 
 ext {
     // The Minecraft version we develop with
-    mc_version = '1.8.8'
+    mc_version = '1.14.4'
 
     paper = [
             // The path in which PaperSpigot get's build
@@ -52,8 +52,7 @@ task ('buildPaperSpigot', type: JavaExec, dependsOn: 'downloadPaperclip') {
 
     main = '-jar'
     args(absolute.toString()/*, '--rev', mc_version*/)
-    // Not working in this outdated version of PaperClip
-    // systemProperties = [ 'paperclip.patchonly': true ]
+    systemProperties = [ 'paperclip.patchonly': true ]
     workingDir = path.getParent().toAbsolutePath().toString()
     standardInput = System.in
 }
@@ -62,7 +61,7 @@ task ('copyPaperSpigot', type: Copy, dependsOn: 'buildPaperSpigot') {
     group 'paper'
     description 'Copies the patched Server executable into the libraries directory'
 
-    def fileName = "patched.jar"/*"patched_${mc_version}.jar"*/, dest = new File(projectDir, 'libs')
+    def fileName = "patched_${mc_version}.jar", dest = new File(projectDir, 'libs')
 
     // If libraries are present, skip all paper tasks
     if (dest.exists()) {
